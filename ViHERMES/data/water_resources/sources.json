@@ -1,0 +1,143 @@
+{
+  "description": "Văn bản quy phạm pháp luật về tài nguyên nước dùng cho đồ án P1. Nội dung lấy từ bản Công báo (PDF có lớp văn bản) do Văn phòng Chính phủ phát hành. Thông tin số hiệu, ngày ban hành, ngày hiệu lực, người ký đối chiếu tại Cơ sở dữ liệu văn bản pháp luật của Chính phủ (vanban.chinhphu.vn).",
+  "retrieved_on": "2026-10-27",
+  "documents": [
+    {
+      "id": "28/2023/QH15",
+      "slug": "luat-28-2023-qh15",
+      "short_name": "Luật Tài nguyên nước 2023",
+      "title": "Luật Tài nguyên nước số 28/2023/QH15",
+      "document_type": "Luật",
+      "issuer": "Quốc hội",
+      "signer": "Vương Đình Huệ",
+      "issued_date": "2023-11-27",
+      "effective_date": "2024-07-01",
+      "source_url": "https://vanban.chinhphu.vn/?pageid=27160&docid=209626",
+      "aliases": ["Luật Tài nguyên nước"],
+      "files": [
+        {
+          "path": "luat-28-2023-qh15/luat28.pdf",
+          "url": "https://datafiles.chinhphu.vn/cpp/files/vbpq/2024/01/luat28.pdf",
+          "gazette": "Công báo số 41 + 42 ngày 08-01-2024",
+          "sha256": "4b6cbe880bc0c7afedd840afb730bed629d7702a3d94eb174172060f1293ee9d"
+        }
+      ]
+    },
+    {
+      "id": "53/2024/NĐ-CP",
+      "slug": "nd-53-2024-nd-cp",
+      "short_name": "Nghị định 53/2024/NĐ-CP",
+      "title": "Nghị định số 53/2024/NĐ-CP quy định chi tiết thi hành một số điều của Luật Tài nguyên nước",
+      "document_type": "Nghị định",
+      "issuer": "Chính phủ",
+      "signer": "Trần Hồng Hà",
+      "issued_date": "2024-05-16",
+      "effective_date": "2024-07-01",
+      "source_url": "https://vanban.chinhphu.vn/?pageid=27160&docid=210246",
+      "gazette_url": "https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-53-2024-nd-cp-41920/50497.htm",
+      "aliases": [],
+      "files": [
+        {
+          "path": "nd-53-2024-nd-cp/50223-1-2024675-67653-2024-nd-cp.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/5/41920/50223-1-2024675-67653-2024-nd-cp.pdf",
+          "gazette": "Công báo số 675 + 676 ngày 30-5-2024",
+          "sha256": "a44f39b7296491a852c20bd78af6345d2a1cb94eb5ec253bac1aaf2dbb70c873"
+        },
+        {
+          "path": "nd-53-2024-nd-cp/50497-1-2024677-67853-2024-nd-cp.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/5/41920/50497-1-2024677-67853-2024-nd-cp.pdf",
+          "gazette": "Công báo số 677 + 678 ngày 30-5-2024",
+          "sha256": "08dcf3b43ee05409f49cd01cd8849c8eb13d861d04a9af2bf9a04f267b237dfe"
+        }
+      ]
+    },
+    {
+      "id": "54/2024/NĐ-CP",
+      "slug": "nd-54-2024-nd-cp",
+      "short_name": "Nghị định 54/2024/NĐ-CP",
+      "title": "Nghị định số 54/2024/NĐ-CP quy định việc hành nghề khoan nước dưới đất, kê khai, đăng ký, cấp phép, dịch vụ tài nguyên nước và tiền cấp quyền khai thác tài nguyên nước",
+      "document_type": "Nghị định",
+      "issuer": "Chính phủ",
+      "signer": "Trần Hồng Hà",
+      "issued_date": "2024-05-16",
+      "effective_date": "2024-07-01",
+      "source_url": "https://vanban.chinhphu.vn/?pageid=27160&docid=210244",
+      "gazette_url": "https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-54-2024-nd-cp-41928/50241.htm",
+      "aliases": [],
+      "files": [
+        {
+          "path": "nd-54-2024-nd-cp/50238-1-2024681-68254-2024-nd-cp.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/5/41928/50238-1-2024681-68254-2024-nd-cp.pdf",
+          "gazette": "Công báo số 681 + 682 ngày 01-6-2024",
+          "sha256": "28d162fbc33b2909a33ce20ad6d35c92691a257b17d9154e9b1b20313ce409a9"
+        },
+        {
+          "path": "nd-54-2024-nd-cp/50241-1-2024683-68454-2024-nd-cp.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/5/41928/50241-1-2024683-68454-2024-nd-cp.pdf",
+          "gazette": "Công báo số 683 + 684 ngày 01-6-2024",
+          "sha256": "dbee079bbffd714307c1f2f6a556a0ba5ca855685079b95a0ceaae083e66a4fe"
+        },
+        {
+          "path": "nd-54-2024-nd-cp/50244-1-2024685-68654-2024-nd-cp.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/CongBaoCP/VanBan/2024/5/41928/50244-1-2024685-68654-2024-nd-cp.pdf",
+          "gazette": "Công báo số 685 + 686 ngày 01-6-2024",
+          "sha256": "96995ffb69105d9b4d943d05e82b98a1eab23260032e02a4dc9e93c167b66dd8"
+        }
+      ]
+    },
+    {
+      "id": "23/2026/NĐ-CP",
+      "slug": "nd-23-2026-nd-cp",
+      "short_name": "Nghị định 23/2026/NĐ-CP",
+      "title": "Nghị định số 23/2026/NĐ-CP sửa đổi, bổ sung một số điều của các nghị định trong lĩnh vực tài nguyên nước",
+      "document_type": "Nghị định",
+      "issuer": "Chính phủ",
+      "signer": "Trần Hồng Hà",
+      "issued_date": "2026-01-17",
+      "effective_date": "2026-01-17",
+      "source_url": "https://vanban.chinhphu.vn/?pageid=27160&docid=216670",
+      "gazette_url": "https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-23-2026-nd-cp-468795.htm",
+      "aliases": [],
+      "files": [
+        {
+          "path": "nd-23-2026-nd-cp/23signed-17700258927351123699570.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/180507251028987904/2026/2/2/23signed-17700258927351123699570.pdf",
+          "gazette": "Công báo số 76 ngày 01-02-2026",
+          "sha256": "7240a65d25326cb7df0a2afbe7442a2500bec08a13cd42596292c36a678ebbcb"
+        }
+      ]
+    },
+    {
+      "id": "146/2025/QH15",
+      "slug": "luat-146-2025-qh15",
+      "short_name": "Luật 146/2025/QH15",
+      "title": "Luật số 146/2025/QH15 sửa đổi, bổ sung một số điều của 15 luật trong lĩnh vực nông nghiệp và môi trường",
+      "document_type": "Luật",
+      "issuer": "Quốc hội",
+      "signer": "Trần Thanh Mẫn",
+      "issued_date": "2025-12-11",
+      "effective_date": "2026-01-01",
+      "source_url": "https://vanban.chinhphu.vn/?pageid=27160&docid=216543",
+      "gazette_url": "https://congbao.chinhphu.vn/van-ban/luat-so-146-2025-qh15-468706.htm",
+      "aliases": [],
+      "include_articles": ["10", "16", "17"],
+      "notes": "Luật sửa đổi 15 luật; đồ án chỉ trích Điều 10 (sửa đổi Luật Tài nguyên nước), Điều 16 (điều khoản thi hành) và Điều 17 (điều khoản chuyển tiếp). Các điều khác giữ nguyên số hiệu gốc và không đưa vào kho dữ liệu.",
+      "files": [
+        {
+          "path": "luat-146-2025-qh15/146signed-17694188051301487803294.pdf",
+          "url": "https://congbaocdn.chinhphu.vn/180507251028987904/2026/1/26/146signed-17694188051301487803294.pdf",
+          "gazette": "Công báo số 43 ngày 22-01-2026",
+          "sha256": "b56a649d879423017fca2f5a1ad8311d1e31391c2b4a99029bff7dde3a158630"
+        }
+      ]
+    }
+  ],
+  "excluded": [
+    {
+      "id": "274/QĐ-TTg",
+      "title": "Quyết định số 274/QĐ-TTg ban hành Kế hoạch triển khai thi hành Luật Tài nguyên nước số 28/2023/QH15",
+      "source_url": "https://vanban.chinhphu.vn/?docid=209989&pageid=27160",
+      "reason": "Bản đính kèm chính thức là PDF scan (không có lớp văn bản); dự án không dùng OCR nên không đưa vào kho dữ liệu."
+    }
+  ]
+}
