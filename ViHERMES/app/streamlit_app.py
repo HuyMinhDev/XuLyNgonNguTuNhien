@@ -10,6 +10,7 @@ Chạy từ thư mục gốc của repository:
 import json
 import os
 import re
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -17,7 +18,7 @@ import streamlit as st
 
 from vihermes.water.benchmark import RUNS
 from vihermes.water.corpus import graph_stats
-from vihermes.water.qa import WaterQA, label
+from vihermes.water.qa import METHOD_LABELS, WaterQA, label, vn_date
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -41,14 +42,19 @@ SAMPLES = [
     "Thời hạn giấy phép hành nghề khoan nước dưới đất là bao lâu?",
     "Thẩm quyền phê duyệt và cơ quan tiếp nhận, thẩm định tiền cấp quyền khai thác tài nguyên nước?",
     "Khoản 5 Điều 8 Luật Tài nguyên nước về hành vi lấn, lấp sông, suối đã được sửa đổi như thế nào?",
+    "Hiện nay, thời hạn tối đa của giấy phép khai thác nước dưới đất là bao nhiêu năm và được quy định ở đâu?",
+    "Năm 2025, ai cấp giấy phép khai thác tài nguyên nước đối với công trình có quy mô lớn?",
+    "Nhà tôi tự khoan giếng lấy nước ngầm để dùng trong gia đình có phải khai báo không?",
     "Giá vé xem bóng đá năm nay là bao nhiêu?",
 ]
-METHOD_NAMES = {"graph": "Graph-based (ViHERMES)", "bm25": "BM25"}
+METHOD_NAMES = METHOD_LABELS
+DEFAULT_METHOD = "graph_hybrid_rerank"
 ORIGINS = {
-    "seed": "BM25 – truy xuất trực tiếp",
-    "validity": "Văn bản sửa đổi, bổ sung",
-    "reference": "Điều khoản được dẫn chiếu",
-    "provenance": "Điều khoản cha",
+    "seed": "truy xuất trực tiếp",
+    "validity": "văn bản sửa đổi, bổ sung, bãi bỏ",
+    "reference": "điều khoản được dẫn chiếu",
+    "provenance": "điều khoản cha",
+    "temporal": "điều khoản thay thế theo thời điểm",
 }
 RELATIONS = {
     "HAS_ARTICLE": "Văn bản → Điều",
@@ -56,6 +62,13 @@ RELATIONS = {
     "REFERS_TO": "Dẫn chiếu",
     "AMENDS": "Sửa đổi, bổ sung",
     "SUPPLEMENTS": "Bổ sung điều mới",
+    "REPEALS": "Bãi bỏ",
+}
+COLORS = {
+    "REFERS_TO": "#5b7aa6",
+    "AMENDS": "#c0533a",
+    "SUPPLEMENTS": "#d38b2c",
+    "REPEALS": "#7a2e8e",
 }
 WARNINGS = {
     "unresolved_reference": "Dẫn chiếu tới điều khoản chưa có trong kho dữ liệu",
@@ -64,6 +77,8 @@ WARNINGS = {
     "context_budget": "Một số bằng chứng bị lược bớt do giới hạn ngữ cảnh",
     "graph_discovery_budget": "Mở rộng đồ thị chạm giới hạn số nút",
     "validity_depth_limit": "Chuỗi sửa đổi vượt quá độ sâu cho phép",
+    "stale_quote": "Đoạn trích không còn hiệu lực tại thời điểm áp dụng",
+    "before_corpus_period": "Thời điểm trước ngày có hiệu lực của các văn bản trong kho dữ liệu",
 }
 ANSWER_TYPES = {
     "extractive": "Câu trả lời trích nguyên văn",
@@ -127,17 +142,32 @@ def warning_text(warning):
 
 
 def render_answer(qa, response):
+    if response.get("as_of"):
+        found = response.get("time_expression")
+        basis = f"nhận diện từ “{found['text']}” trong câu hỏi" if found else "do người dùng chọn"
+        st.caption(f"Thời điểm áp dụng: **{vn_date(response['as_of'])}** ({basis})")
     kind = response["answer_type"]
     box = {"extractive": st.success, "reference_only": st.warning}.get(kind, st.info)
     if kind == "extractive":
         box(ANSWER_TYPES[kind] + " – mỗi đoạn được sao chép đúng từ văn bản gốc.")
         for quote in response["quotes"]:
-            st.markdown(f"**Theo {quote['label']}:**")
+            stale = f" – ⚠ {quote['validity']}" if quote.get("validity") else ""
+            st.markdown(f"**Theo {quote['label']}{stale}:**")
             st.markdown("> " + markdown_text(quote["text"]).replace("  \n", "  \n> "))
     else:
-        box(markdown_text(response["answer"]))
-    if response["amendments"]:
-        st.info("**Lưu ý hiệu lực:** " + " ".join(response["amendments"]))
+        # Validity notes are shown once, in the box below.
+        lines = [x for x in response["answer"].split("\n") if not x.startswith("Lưu ý: ")]
+        box(markdown_text("\n".join(lines)))
+    outdated = response.get("outdated", [])
+    if outdated:
+        st.warning(
+            "**Điều khoản liên quan đã hết hiệu lực:**\n\n" + "\n".join(f"- {n}" for n in outdated)
+        )
+    notes = [n for n in response["amendments"] if n not in outdated]
+    if notes:
+        shown = "\n".join(f"- {n}" for n in notes[:5])
+        more = f"\n\n_… và {len(notes) - 5} lưu ý khác._" if len(notes) > 5 else ""
+        st.info("**Lưu ý hiệu lực:**\n\n" + shown + more)
 
     columns = st.columns(4)
     columns[0].metric("Thời gian truy xuất", f"{response['elapsed_ms']:.1f} ms")
@@ -157,7 +187,11 @@ def render_answer(qa, response):
     if response["evidence"]:
         st.subheader("Bằng chứng truy xuất")
         for i, item in enumerate(response["evidence"][:15], 1):
-            title = f"{i}. {item['label']} · {ORIGINS.get(item['origin'], item['origin'])} · điểm {item['score']:.2f}"
+            validity = f" · {item['validity']['label']}" if item.get("validity") else ""
+            title = (
+                f"{i}. {item['label']} · {ORIGINS.get(item['origin'], item['origin'])} · "
+                f"điểm {item['score']:.2f}{validity}"
+            )
             with st.expander(title, expanded=i == 1):
                 if item["article_title"]:
                     st.caption(f"Điều {item['article']}. {item['article_title']}")
@@ -199,26 +233,40 @@ def page_qa(qa):
             height=80,
             placeholder="Ví dụ: Giấy phép khai thác nước dưới đất có thời hạn bao lâu?",
         )
-        left, middle, right = st.columns([2, 2, 1.4])
-        method = left.radio(
+        left, middle, right = st.columns([2.4, 1.6, 1.6])
+        methods = list(METHOD_NAMES)
+        method = left.selectbox(
             "Phương pháp truy xuất",
-            list(METHOD_NAMES),
-            index=query_index("method", list(METHOD_NAMES)),
+            methods,
+            index=methods.index(st.query_params.get("method", DEFAULT_METHOD))
+            if st.query_params.get("method", DEFAULT_METHOD) in methods
+            else 0,
             format_func=METHOD_NAMES.get,
-            horizontal=True,
         )
-        k = middle.slider("Số điều khoản hạt giống (k)", 3, 10, 5)
-        compare = right.checkbox("So sánh hai phương pháp", value="compare" in st.query_params)
+        # 10 seeds, as in the evaluation.
+        k = middle.slider("Số điều khoản hạt giống (k)", 3, 15, 10)
+        compare = right.checkbox("So sánh với BM25", value="compare" in st.query_params)
+        timed = right.checkbox("Xét hiệu lực theo thời điểm", value=True)
+        day = middle.date_input(
+            "Thời điểm áp dụng",
+            value=date.today(),
+            min_value=date(2024, 7, 1),
+            format="DD/MM/YYYY",
+            help="Cụm từ thời gian trong câu hỏi (“hiện nay”, “năm 2025”, “trước khi Luật "
+            "146/2025/QH15 có hiệu lực”) được ưu tiên hơn ngày chọn ở đây.",
+        )
         submitted = st.form_submit_button("Tìm kiếm", type="primary")
     if not (submitted or linked):
         return
     if not question.strip():
         st.warning("Vui lòng nhập câu hỏi.")
         return
+    options = dict(as_of=day if timed else None, temporal="auto" if timed else "none")
     if compare:
         columns = st.columns(2)
-        for column, name in zip(columns, METHOD_NAMES):
-            response = qa.ask(question, name, k)
+        pair = ["bm25", method if method != "bm25" else "graph"]
+        for column, name in zip(columns, pair):
+            response = qa.ask(question, name, k, **options)
             with column:
                 st.subheader(METHOD_NAMES[name])
                 st.caption(
@@ -226,14 +274,17 @@ def page_qa(qa):
                     f"{ANSWER_TYPES[response['answer_type']]}"
                 )
                 for i, item in enumerate(response["evidence"][:10], 1):
+                    validity = f" · {item['validity']['label']}" if item.get("validity") else ""
                     st.markdown(
                         f"{i}. **{item['label']}** – {ORIGINS.get(item['origin'], '')} "
-                        f"({item['score']:.2f})"
+                        f"({item['score']:.2f}){validity}"
                     )
-                if response["amendments"]:
-                    st.info(" ".join(response["amendments"]))
+                if response.get("outdated"):
+                    st.warning(" ".join(response["outdated"]))
         st.divider()
-    render_answer(qa, qa.ask(question, method, k))
+    with st.spinner("Đang truy xuất…"):
+        response = qa.ask(question, method, k, **options)
+    render_answer(qa, response)
 
 
 def document_graph(stats, documents):
@@ -241,7 +292,7 @@ def document_graph(stats, documents):
     lines = ["digraph G {", 'rankdir=LR; node [shape=box, style="rounded,filled", fontsize=11];']
     for key, name in names.items():
         lines.append(f'"{key}" [label="{dot_text(name, 22)}", fillcolor="#dbeee8"];')
-    colors = {"REFERS_TO": "#5b7aa6", "AMENDS": "#c0533a", "SUPPLEMENTS": "#d38b2c"}
+    colors = COLORS
     for pair, counts in stats["cross_document"].items():
         source, target = pair.split(" → ")
         for node in (source, target):
@@ -276,7 +327,7 @@ def article_graph(qa, article_id):
     lines = ["digraph G {", 'rankdir=LR; node [shape=box, style="rounded,filled", fontsize=10];']
     center = dot_text(label(article))
     lines.append(f'"{center}" [fillcolor="#bfe3d7"];')
-    colors = {"REFERS_TO": "#5b7aa6", "AMENDS": "#c0533a", "SUPPLEMENTS": "#d38b2c"}
+    colors = COLORS
     shown = set()
     for edge in edges[:40]:
         # Clauses of the selected article are drawn as the article itself.
@@ -376,8 +427,17 @@ def page_graph(qa, stats):
         st.markdown("\n".join(f"- `{key}`" for key in stats["unresolved_targets"]))
 
 
+CATEGORY_NAMES = {
+    "direct": "Tra cứu trực tiếp",
+    "multi_provision": "Nhiều điều khoản",
+    "cross_document": "Liên văn bản / sửa đổi",
+    "colloquial": "Ngôn ngữ đời thường",
+    "temporal": "Theo thời điểm",
+}
+
+
 def page_evaluation():
-    st.title("Đánh giá BM25 và Graph-based Retrieval")
+    st.title("Đánh giá các phương pháp truy xuất")
     path = OUTPUT / "evaluation.json"
     if not path.exists():
         st.info(
@@ -386,6 +446,7 @@ def page_evaluation():
         )
         return
     report = json.loads(path.read_text(encoding="utf-8"))
+    names = report.get("methods", {})
     if report["provisional"]:
         st.warning(
             f"{report['note']} Đã xác nhận {report['verified_questions']}/{report['questions']} câu."
@@ -394,62 +455,91 @@ def page_evaluation():
     metrics = {
         **{f"recall@{k}": f"Recall@{k}" for k in report["config"]["cutoffs"]},
         f"mrr@{depth}": f"MRR@{depth}",
-        f"amendment_coverage@{depth}": f"Độ phủ sửa đổi@{depth}",
+        "stale@5": "Stale@5",
         "latency_ms": "Thời gian (ms)",
     }
 
-    def summary_table(part):
+    def summary_table(summary, part="all"):
         return pd.DataFrame(
             [
                 {
-                    "Cấu hình": RUNS.get(run, run),
-                    **{v: summary[part][k] for k, v in metrics.items()},
+                    "Cấu hình": names.get(run, RUNS.get(run, run)),
+                    **{v: values[part].get(k) for k, v in metrics.items()},
                 }
-                for run, summary in report["summary"].items()
-                if summary[part]
+                for run, values in summary.items()
+                if values[part]
             ]
         )
 
-    table = summary_table("all")
-    st.subheader("Kết quả tổng hợp")
-    st.dataframe(table.style.format(precision=3), hide_index=True, width="stretch")
-    if report["verified_questions"]:
-        st.subheader(f"Chỉ các câu đã xác nhận ({report['verified_questions']} câu)")
-        st.dataframe(
-            summary_table("verified").style.format(precision=3), hide_index=True, width="stretch"
-        )
+    st.subheader(
+        f"Bộ câu hỏi theo chủ đề ({report.get('topical_questions', report['questions'])} câu)"
+    )
+    st.dataframe(
+        summary_table(report["summary"]).style.format(precision=3), hide_index=True, width="stretch"
+    )
     st.caption(
-        "Hai dòng đầu là hai phương pháp chính; hai dòng cuối là thí nghiệm loại bỏ (ablation). "
-        "Độ phủ sửa đổi: tỷ lệ điều khoản đã bị sửa đổi trong top-10 mà văn bản sửa đổi tương ứng "
-        "cũng có mặt trong top-10 (không cần nhãn, nhưng Graph có lợi thế theo thiết kế)."
+        "Stale@5: tỷ lệ điều khoản trong top-5 không còn hiệu lực tại ngày tham chiếu "
+        f"{vn_date(report['config'].get('reference_date', '2026-11-12'))}."
     )
     chart = OUTPUT / "evaluation_chart.png"
     if chart.exists():
-        # The chart written by `evaluate`, identical to the figure in the report.
-        st.image(str(chart), width=820)
+        st.image(str(chart), width=860)
+    if report.get("significance"):
+        st.subheader("Kiểm định ý nghĩa thống kê (hoán vị cặp, hiệu chỉnh Holm)")
+        st.dataframe(
+            pd.DataFrame(
+                [
+                    {
+                        "So sánh": f"{names.get(t['a'], t['a'])} → {names.get(t['b'], t['b'])}",
+                        "Chỉ số": t["metric"],
+                        "Chênh lệch": t["difference"],
+                        "Thắng/thua": f"{t['wins_b']}/{t['wins_a']}",
+                        "p": t["p"],
+                        "p (Holm)": t["p_holm"],
+                    }
+                    for t in report["significance"]
+                ]
+            ).style.format(precision=3),
+            hide_index=True,
+            width="stretch",
+        )
 
     st.subheader("Theo nhóm câu hỏi")
-    category_names = {
-        "direct": "Tra cứu trực tiếp",
-        "multi_provision": "Nhiều điều khoản",
-        "cross_document": "Liên văn bản / sửa đổi",
-    }
     rows = []
-    for run in ("bm25", "graph"):
-        for category, values in report["summary"][run]["by_category"].items():
+    for run, values in report["summary"].items():
+        for category, group in values["by_category"].items():
             rows.append(
                 {
-                    "Phương pháp": RUNS[run],
-                    "Nhóm": category_names.get(category, category),
-                    "Số câu": values["n"],
-                    **{metrics[k]: values[k] for k in metrics if k.startswith(("recall", "mrr"))},
+                    "Phương pháp": names.get(run, run),
+                    "Nhóm": CATEGORY_NAMES.get(category, category),
+                    "Số câu": group["n"],
+                    **{metrics[k]: group[k] for k in metrics if k.startswith(("recall", "mrr"))},
                 }
             )
     st.dataframe(pd.DataFrame(rows).style.format(precision=3), hide_index=True, width="stretch")
 
+    temporal = report.get("temporal")
+    if temporal and temporal.get("summary"):
+        st.subheader(f"Bộ câu hỏi theo thời điểm ({report.get('temporal_questions')} câu)")
+        st.dataframe(
+            summary_table(temporal["summary"]).style.format(precision=3),
+            hide_index=True,
+            width="stretch",
+        )
+        chart = OUTPUT / "temporal_chart.png"
+        if chart.exists():
+            st.image(str(chart), width=860)
+        timex = report.get("time_extraction", {})
+        if timex.get("exact_date_accuracy") is not None:
+            st.caption(
+                f"Nhận diện và chuẩn hóa thời điểm trong câu hỏi: đúng ngày "
+                f"{timex['exact_date_accuracy']:.0%} trên {timex['temporal_questions']} câu."
+            )
+
     st.subheader("Chi tiết từng câu hỏi")
     detail = pd.read_csv(OUTPUT / "evaluation.csv")
-    run = st.selectbox("Cấu hình", list(report["summary"]), format_func=lambda r: RUNS.get(r, r))
+    runs = list(dict.fromkeys(detail["method"]))
+    run = st.selectbox("Cấu hình", runs, format_func=lambda r: names.get(r, r))
     benchmark = DATA / "benchmark.jsonl"
     questions = {}
     if benchmark.exists():

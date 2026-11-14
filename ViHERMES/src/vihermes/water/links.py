@@ -3,13 +3,18 @@
 References (REFERS_TO) are read from provision text: "khoản 2 Điều 9 của Luật này",
 "Điều 43 của Luật Tài nguyên nước", "khoản 1 Điều 8 Nghị định số 54/2024/NĐ-CP".
 Amending articles ("Sửa đổi, bổ sung một số điều của ...") yield validity edges from each
-affected provision to the amending clause, following ViHERMES direction (affected → update).
+affected provision to the amending clause, following ViHERMES direction (affected → update):
+REPEALS when a whole provision is repealed, SUPPLEMENTS for new text anchored to it, and
+AMENDS otherwise. Each edge is also recorded as a dated event with its kind and scope
+(whole or partial), which the temporal layer uses to decide what is in force on a date.
 """
 
 import re
+from dataclasses import dataclass
 
 from ..ingestion import DOCUMENT_CODE
 from ..models import Edge
+from .instructions import parse_clause
 
 CLAUSE_LIST = r"(?P<clauses>\d+(?:\s*(?:,|và|hoặc)\s*(?:khoản\s+)?\d+)*)"
 # Provision references capitalize "Điều"; lowercase "các điều 81, 82" lists are not parsed.
@@ -17,7 +22,6 @@ MENTION = re.compile(
     rf"(?:(?:các\s+)?[Kk]hoản\s+{CLAUSE_LIST}\s+(?:của\s+)?)?Điều\s+(?P<article>\d+[a-z]?)\b"
 )
 THIS_ARTICLE = re.compile(rf"(?:các\s+)?[Kk]hoản\s+{CLAUSE_LIST}\s+(?:của\s+)?Điều\s+này")
-BARE_CLAUSE = re.compile(r"[Kk]hoản\s+(\d+)")
 # Text allowed between mentions that share one document qualifier.
 CHAIN_GAP = re.compile(
     r"^\s*(?:,|;|và|hoặc)?\s*(?:(?:các\s+)?điểm\s+[a-zđ](?:\s*(?:,|và|hoặc)\s*(?:điểm\s+)?[a-zđ])*\s+)?$"
@@ -34,6 +38,23 @@ QUALIFIER = re.compile(
 DATED = re.compile(r"\s+(?:ngày\s+\d{1,2}\s+tháng\s+\d{1,2}\s+)?năm\s+(\d{4})")
 AMENDING_TITLE = re.compile(r"^Sửa đổi,? bổ sung một số điều của")
 VERB = re.compile(r"^\s*(?:\d+\.\s+)?(Sửa đổi|Bổ sung|Bãi bỏ|Thay thế|Sửa)")
+RELATION = {"repeal": "REPEALS", "supplement": "SUPPLEMENTS"}
+
+
+@dataclass(frozen=True)
+class Event:
+    """A change to ``unit`` made by the amending clause ``source``."""
+
+    unit: str
+    source: str
+    kind: str  # repeal | amend | supplement | wording
+    scope: str  # whole | partial
+
+    @property
+    def relation(self):
+        if self.kind == "supplement":
+            return "SUPPLEMENTS"
+        return "REPEALS" if self.kind == "repeal" and self.scope == "whole" else "AMENDS"
 
 
 def split_quotes(text):
@@ -64,6 +85,7 @@ class Linker:
             ((alias, d.id) for d in documents for alias in d.aliases), key=lambda x: -len(x[0])
         )
         self.units = set(unit_ids)
+        self.events = []
 
     def named_document(self, text):
         """Resolve a document named by number or registered alias at the start of text."""
@@ -131,31 +153,42 @@ class Linker:
             if t != source and not source.startswith(t + "::")
         ]
 
-    def amendments(self, source, instruction, target_document):
-        """Validity edges from provisions named in an amendment instruction to its clause."""
-        verb = VERB.match(instruction)
-        relation = "SUPPLEMENTS" if verb and verb[1] == "Bổ sung" else "AMENDS"
-        mentions = self.mentions(instruction, target_document)
-        targets = []
-        for document, article, clauses in mentions:
-            base = f"{document}::article:{article}"
-            if base not in self.units:
-                # A supplemented article (e.g. 8a) is new; anchor it to its base article.
-                base = f"{document}::article:{article.rstrip('abcdefghijklmnopqrstuvwxyz')}"
-            if base in self.units:
-                targets.append(base)
-                targets.extend(f"{base}::clause:{c}" for c in clauses)
-        articles = {f"{d}::article:{a}" for d, a, _ in mentions}
-        if len(articles) == 1:
-            # Sub-items such as "a) Sửa đổi khoản 2 như sau:" refer to the single named article.
-            base = next(iter(articles))
-            remainder = MENTION.sub(" ", instruction)
-            targets.extend(f"{base}::clause:{c}" for c in BARE_CLAUSE.findall(remainder))
-        return [
-            Edge(t, source, relation)
-            for t in dict.fromkeys(targets)
-            if t in self.units and t != source
-        ]
+    def amendments(self, source, operations, target_document):
+        """Dated events for the provisions named by parsed amendment operations."""
+        events = []
+        for operation in operations:
+            for target in operation.targets:
+                base = f"{target_document}::article:{target.article}"
+                if base not in self.units and operation.kind == "supplement":
+                    # A supplemented article (e.g. 8a) is new; anchor it to its base article.
+                    base = f"{target_document}::article:{target.article.rstrip('abcdefghijklmnopqrstuvwxyz')}"
+                if base not in self.units or base == source:
+                    continue
+                whole = operation.kind in {"repeal", "amend"} and not target.partial
+                clause = f"{base}::clause:{target.clause}" if target.clause else None
+                if clause in self.units:
+                    events.append(
+                        Event(clause, source, operation.kind, "whole" if whole else "partial")
+                    )
+                    events.append(Event(base, source, operation.kind, "partial"))
+                elif clause is None:
+                    events.append(
+                        Event(base, source, operation.kind, "whole" if whole else "partial")
+                    )
+                else:
+                    # A new clause ("bổ sung khoản 7") changes its article only in part.
+                    events.append(Event(base, source, operation.kind, "partial"))
+
+        # One amending clause may touch a unit twice; the widest change wins.
+        def rank(event):
+            return (event.scope == "whole", event.kind != "wording")
+
+        strongest = {}
+        for event in events:
+            key = (event.unit, event.source)
+            if key not in strongest or rank(event) > rank(strongest[key]):
+                strongest[key] = event
+        return list(strongest.values())
 
 
 def document_links(document, preamble, linker):
@@ -189,18 +222,26 @@ def instruction_target(text, current, linker):
     return target if target != current else None
 
 
-def amendment_links(source, text, target, linker):
-    instruction, quoted = split_quotes(text)
+def amendment_links(source, paragraphs, target, linker):
+    operations, replacement = parse_clause(paragraphs)
+    events = linker.amendments(source, operations, target)
+    linker.events.extend(events)
+    instruction, quoted = split_quotes("\n".join(p for p in paragraphs if p not in replacement))
     # Out-of-corpus targets cannot carry validity edges; keep them as explicit references.
-    found = linker.amendments(source, instruction, target)
+    found = [Edge(e.unit, e.source, e.relation) for e in events]
     return [
         *(found or linker.references(source, instruction, target)),
-        *linker.references(source, quoted, target),
+        *(
+            edge
+            for edge in linker.references(source, "\n".join([quoted, *replacement]), target)
+            # The heading of replacement text ("“Điều 50. ...") names the amended article.
+            if edge.target not in {e.unit for e in events}
+        ),
     ]
 
 
 def article_links(document, articles, linker):
-    """REFERS_TO, AMENDS, and SUPPLEMENTS edges for the provisions of one document."""
+    """REFERS_TO, AMENDS, SUPPLEMENTS and REPEALS edges for the provisions of one document."""
     edges = []
     for article in articles:
         aid = f"{document.id}::article:{article.number}"
@@ -209,7 +250,7 @@ def article_links(document, articles, linker):
             edges.append(Edge(document.id, target, "REFERS_TO"))
             for clause in article.clauses:
                 cid = f"{aid}::clause:{clause.number}"
-                edges.extend(amendment_links(cid, clause.text, target, linker))
+                edges.extend(amendment_links(cid, clause.paragraphs, target, linker))
             continue
         if not article.clauses:
             edges.extend(linker.references(aid, article.text, document.id, article.number))
@@ -220,7 +261,7 @@ def article_links(document, articles, linker):
             cid = f"{aid}::clause:{clause.number}"
             target = instruction_target(clause.text, document.id, linker)
             if target:
-                edges.extend(amendment_links(cid, clause.text, target, linker))
+                edges.extend(amendment_links(cid, clause.paragraphs, target, linker))
             else:
                 edges.extend(linker.references(cid, clause.text, document.id, article.number))
     return list(dict.fromkeys(edges))

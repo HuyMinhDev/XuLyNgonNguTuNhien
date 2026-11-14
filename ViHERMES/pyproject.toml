@@ -25,6 +25,8 @@ dataset = ["scikit-learn>=1.4,<2"]
 dev = ["pytest>=8,<9", "ruff>=0.9", "build>=1"]
 # Water-resources QA project: PDF extraction, demo UI, and benchmark chart.
 water = ["pymupdf>=1.24", "streamlit>=1.40", "pandas>=2", "matplotlib>=3.8", "certifi"]
+# Dense retrieval, cross-encoder re-ranking and Vietnamese word segmentation (CPU or Apple MPS).
+neural = ["sentence-transformers>=3,<7", "torch>=2.4", "pyvi>=0.1.1"]
 
 [project.scripts]
 vihermes = "vihermes.cli:main"

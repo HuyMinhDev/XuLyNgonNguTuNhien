@@ -14,6 +14,8 @@
 
 ---
 
+> **Ghi chú phiên bản (12/11/2026):** báo cáo này mô tả phiên bản 1. Phiên bản 2 đã sửa lỗi bãi bỏ chưa được phân tích và 2 cạnh `AMENDS` sai nêu trong các ghi chú trước, đồng thời bổ sung truy xuất thần kinh, Knowledge Graph hiệu lực theo thời gian và 33 câu hỏi mới. Số liệu đồ thị và đánh giá của phiên bản 2 khác các bảng dưới đây; xem [`BAO_CAO_NANG_CAP.md`](BAO_CAO_NANG_CAP.md).
+
 ## Chương 1. Giới thiệu
 
 ### 1.1. Lý do chọn đề tài

@@ -11,11 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from ..graph import SQLiteGraph
-from ..models import Edge, Node
+from ..models import VALIDITY, Edge, Node
 from .links import Linker, article_links, document_links
 from .pdftext import extract_paragraphs
 from .sources import load_sources, sha256
 from .structure import Article, Clause, segment
+from .temporal import annotate
 
 CONTEXT_FIELDS = [
     "context_id",
@@ -216,6 +217,8 @@ def build_graph(sources_path, processed_dir, db_path, force=False):
     for document, record in records:
         edges.extend(document_links(document, record["preamble"], linker))
         edges.extend(article_links(document, load_articles(record), linker))
+    # Dated amendment events make every provision's validity answerable for a given day.
+    nodes = annotate(nodes, linker.events, {d.id: d.effective_date for d in documents})
 
     staging = db_path.with_name(db_path.name + ".building")
     staging.unlink(missing_ok=True)
@@ -255,7 +258,7 @@ def graph_stats(db_path):
         a, b = by_id[source].document_id, by_id[target].document_id
         if a != b and relation not in {"HAS_ARTICLE", "HAS_CLAUSE"}:
             # Validity edges point affected → update; report them as amending → amended.
-            key = f"{b} → {a}" if relation in {"AMENDS", "SUPPLEMENTS"} else f"{a} → {b}"
+            key = f"{b} → {a}" if relation in VALIDITY else f"{a} → {b}"
             pairs[key][relation] += 1
     return {
         "documents": len(corpus_documents),
@@ -279,4 +282,14 @@ def graph_stats(db_path):
             for d in sorted(corpus_documents)
         },
         "cross_document": {k: dict(v) for k, v in sorted(pairs.items())},
+        "changes": change_stats(real),
     }
+
+
+def change_stats(nodes):
+    """Dated amendment events by kind and scope, as stored on the provisions they change."""
+    counts = Counter()
+    for node in nodes:
+        for change in node.metadata.get("changes", []):
+            counts[f"{change['kind']}:{change['scope']}"] += 1
+    return dict(sorted(counts.items()))

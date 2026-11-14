@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 STRUCTURAL = frozenset({"HAS_ARTICLE", "HAS_CLAUSE"})
-VALIDITY = frozenset({"AMENDS", "REPLACES", "SUPPLEMENTS"})
+# REPEALS was added for the water-resources project: a repealed provision has no successor
+# text, so it must not be presented as merely amended.
+VALIDITY = frozenset({"AMENDS", "REPLACES", "SUPPLEMENTS", "REPEALS"})
 RELATIONS = STRUCTURAL | VALIDITY | {"REFERS_TO"}
 
 

@@ -4,7 +4,7 @@ import argparse
 import json
 import os
 
-from .qa import METHODS
+from .qa import ABLATIONS, METHODS, TEMPORAL_MODES
 
 DATA = os.environ.get("WATER_QA_DATA", "data/water_resources")
 OUTPUT = os.environ.get("WATER_QA_OUTPUT", "outputs/water_resources")
@@ -35,14 +35,33 @@ def parser():
     ask = sub.add_parser("ask")
     ask.add_argument("question")
     ask.add_argument("--db", default=DB)
-    ask.add_argument("--method", choices=METHODS, default="graph")
-    ask.add_argument("-k", type=int, default=5, help="number of BM25 seed provisions")
+    ask.add_argument("--method", choices=METHODS + ABLATIONS, default="graph")
+    ask.add_argument("-k", type=int, default=5, help="number of seed provisions")
+    ask.add_argument(
+        "--as-of",
+        help="apply the law in force on this day (YYYY-MM-DD); a time expression in the "
+        "question takes precedence",
+    )
+    ask.add_argument("--temporal", choices=("auto", *TEMPORAL_MODES), default="auto")
+    ask.add_argument(
+        "--llm",
+        metavar="MODEL",
+        help="draft a cited answer with this model on an OpenAI-compatible endpoint "
+        "(OPENAI_API_KEY, OPENAI_BASE_URL); the ViHERMES Auditor verifies every quote",
+    )
     ask.add_argument("--full", action="store_true", help="print evidence text and graph edges")
     evaluate = sub.add_parser("evaluate")
     evaluate.add_argument("--benchmark", default=f"{DATA}/benchmark.jsonl")
     evaluate.add_argument("--db", default=DB)
     evaluate.add_argument("--output", default=OUTPUT)
-    evaluate.add_argument("-k", type=int, default=10, help="number of BM25 seed provisions")
+    evaluate.add_argument("-k", type=int, default=10, help="number of seed provisions")
+    evaluate.add_argument(
+        "--no-neural", action="store_true", help="only BM25 and graph runs (no torch needed)"
+    )
+    answers = sub.add_parser("evaluate-answers")
+    answers.add_argument("--benchmark", default=f"{DATA}/benchmark.jsonl")
+    answers.add_argument("--db", default=DB)
+    answers.add_argument("--output", default=OUTPUT)
     return p
 
 
@@ -71,18 +90,34 @@ def run(args):
             Path(args.output).write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n")
         return result
     if args.command == "ask":
+        from datetime import date
+
         from .qa import WaterQA
 
+        as_of = date.fromisoformat(args.as_of) if args.as_of else None
         with WaterQA(args.db, k=args.k) as qa:
-            response = qa.ask(args.question, args.method)
+            if args.llm:
+                from ..adapters.models import OpenAILanguageModel
+                from .generate import generate
+
+                return generate(
+                    qa, args.question, OpenAILanguageModel(args.llm), args.method, as_of
+                )
+            response = qa.ask(args.question, args.method, as_of=as_of, temporal=args.temporal)
         if not args.full:
             response.pop("edges", None)
             for item in response["evidence"]:
                 item["text"] = item["text"][:300] + ("…" if len(item["text"]) > 300 else "")
         return response
+    if args.command == "evaluate-answers":
+        from .benchmark import run_answer_benchmark
+
+        return run_answer_benchmark(args.db, args.benchmark, args.output)
     from .benchmark import run_benchmark
 
-    report = run_benchmark(args.db, args.benchmark, args.output, seeds=args.k)
+    report = run_benchmark(
+        args.db, args.benchmark, args.output, seeds=args.k, neural=not args.no_neural
+    )
     report.pop("questions_detail")
     return report
 

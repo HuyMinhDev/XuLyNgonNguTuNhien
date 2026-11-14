@@ -366,7 +366,9 @@ def test_metrics_count_clauses_as_hits_for_their_article(corpus):
 
 def test_benchmark_file_is_valid_and_unverified_by_default():
     items = load_benchmark(DATA / "benchmark.jsonl")
-    assert 20 <= len(items) <= 30
+    assert 60 <= len(items) <= 70
+    temporal = [i for i in items if i.get("category") == "temporal"]
+    assert len(temporal) >= 20 and all(i.get("as_of") for i in temporal)
     # Only a person may mark a question verified.
     assert {i["verification_status"] for i in items} <= {"needs_review", "verified"}
 

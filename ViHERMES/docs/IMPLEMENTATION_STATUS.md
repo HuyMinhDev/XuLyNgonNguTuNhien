@@ -1,5 +1,42 @@
 # Trạng thái triển khai đồ án P1
 
+## Phiên bản 2 – TempLaw-KAG (12/11/2026)
+
+Chưa commit. Chi tiết phương pháp và số liệu ở [`reports/BAO_CAO_NANG_CAP.md`](../reports/BAO_CAO_NANG_CAP.md).
+
+| Hạng mục | Trạng thái | Ghi chú |
+| :-- | :-- | :-- |
+| Sửa lỗi phân tích câu lệnh bãi bỏ ("các điều 54, 55, 56 và 57") | Hoàn thành | Thêm quan hệ `REPEALS` (18 cạnh); mô-đun `instructions.py` |
+| Sửa 2 cạnh `AMENDS` sai do lỗi ngoặc kép Công báo | Hoàn thành | Chỉ đọc dòng câu lệnh; đã đối chiếu từng cạnh với đồ thị phiên bản 1 (3 cặp bị loại, 19 cặp được thêm, đều kiểm tra thủ công) |
+| Knowledge Graph hiệu lực theo thời gian | Hoàn thành | 529 sự kiện có ngày; `Timeline.status`, `resolve` |
+| Nhận diện biểu thức thời gian tiếng Việt | Hoàn thành | Đúng 22/22 câu theo thời điểm (do cùng người soạn, xem hạn chế) |
+| Dense (PhoBERT bi-encoder, tách từ pyvi), Hybrid RRF, PhoRanker | Hoàn thành | Chạy trên CPU hoặc MPS; cache embedding |
+| Bộ chọn đoạn trích ngữ nghĩa (cross-encoder) | Hoàn thành | Ngưỡng 0,5, không tinh chỉnh |
+| LLM sinh câu trả lời có trích dẫn (tùy chọn) | Hoàn thành mã, **chưa đánh giá** | Không có khóa API; kiểm thử bằng mô hình giả lập |
+| Benchmark 62 câu (thêm 11 đời thường, 22 theo thời điểm) | Hoàn thành, **tạm thời** | Tất cả `needs_review` |
+| Kiểm định hoán vị + Holm, bootstrap CI, Stale@5, cấp câu trả lời | Hoàn thành | `evaluate`, `evaluate-answers` |
+| Giao diện: phương pháp mới, thời điểm áp dụng, nhãn hiệu lực | Hoàn thành | |
+| Kiểm thử | Hoàn thành | 64 đạt, 3 bỏ qua (adapter dịch vụ ngoài) |
+
+**Việc người dùng cần làm:**
+
+1. Xác nhận 62 câu benchmark (đặc biệt 33 câu mới T01–T22, C01–C11), rồi chạy lại `vihermes-water evaluate` và `evaluate-answers`.
+2. Nếu có khóa API (hoặc máy chủ LLM cục bộ), chạy `vihermes-water ask "…" --llm <model>` để đánh giá phần sinh câu trả lời.
+3. Đọc lại bài báo, slide và kịch bản demo đã cập nhật (xem bảng dưới); bản phiên bản 1 được lưu trong `reports/v1/`.
+
+| Sản phẩm | Tệp | Ghi chú |
+| :-- | :-- | :-- |
+| Bài báo | `reports/NguyenMinhHuy_BaoCao_KnowledgeGraph.docx` (+ `.pdf`) | 14 trang Letter, giữ định dạng mẫu; 4 hình, 6 bảng, 34 tài liệu tham khảo (10 tài liệu mới đã kiểm chứng trên web) |
+| Slide | `reports/NguyenMinhHuy_BaoCao_KnowledgeGraph_slide.pptx` (+ `.pdf`) | 21 slide 16:9, biểu đồ gốc PowerPoint, ghi chú thuyết trình tiếng Việt |
+| Kịch bản demo | `reports/KICH_BAN_DEMO.md`, ảnh trong `reports/demo/` | 9 ảnh chụp app thật ngày 12/11/2026 |
+| Báo cáo kỹ thuật | `reports/BAO_CAO_NANG_CAP.md` | Chi tiết phương pháp, số liệu, kiểm định |
+
+Thay đổi nhỏ sau khi đánh giá (không ảnh hưởng số liệu): cảnh báo khi điều khoản liên quan nhất đã hết hiệu lực; giao diện mặc định k = 10 (khớp cấu hình đánh giá); câu gợi ý "hiện nay" dùng đúng cách nói của T02.
+
+---
+
+## Phiên bản 1
+
 Cập nhật: 27/10/2026. Toàn bộ thay đổi **chưa được commit**; `git status` liệt kê các tệp ở mục 3.
 
 ## 1. Tổng quan theo Definition of Done
